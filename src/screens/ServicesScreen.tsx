@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAppStore } from '../store/useAppStore'
 import { apiFetch } from '../lib/api'
@@ -267,6 +268,7 @@ export function ServicesScreen() {
   const operator = useAppStore((s) => s.operator)
   const showToast = useAppStore((s) => s.showToast)
   const queryClient = useQueryClient()
+  const navigate = useNavigate()
 
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState<Service | null>(null)
@@ -312,8 +314,14 @@ export function ServicesScreen() {
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
-      <div className="sticky top-0 z-10 flex items-center justify-between border-b border-white/[0.05] bg-bg/90 px-4 pb-3 pt-12 backdrop-blur-xl">
-        <h2 className="font-display text-xl font-extrabold text-text">Services</h2>
+      <div className="sticky top-0 z-10 flex items-center gap-3 border-b border-white/[0.05] bg-bg/90 px-4 pb-3 pt-12 backdrop-blur-xl">
+        <button
+          onClick={() => navigate('/app/more')}
+          className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/[0.06] text-text"
+        >
+          ←
+        </button>
+        <h2 className="flex-1 font-display text-xl font-extrabold text-text">Services</h2>
         <button
           onClick={() => setFormOpen(true)}
           className="rounded-xl border border-gold/25 bg-gold/10 px-3.5 py-2 text-[12px] font-bold text-gold"
