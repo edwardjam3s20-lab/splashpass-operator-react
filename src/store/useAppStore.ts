@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { persist } from 'zustand/middleware'
 import type { Operator } from '../types'
 
 interface AppState {
@@ -14,19 +15,28 @@ interface AppState {
   hideToast: () => void
 }
 
-export const useAppStore = create<AppState>((set) => ({
-  operator: null,
-  setOperator: (op) => set({ operator: op }),
+export const useAppStore = create<AppState>()(
+  persist(
+    (set) => ({
+      operator: null,
+      setOperator: (op) => set({ operator: op }),
 
-  // Tracks whether we've completed the initial /api/operator/auth/me check.
-  // Needed because there's no synchronous way to know login state (httpOnly
-  // cookie) — RequireAuth needs to distinguish "still checking" from
-  // "checked and not logged in" to avoid a flash-redirect to login.
-  authChecked: false,
-  setAuthChecked: (checked) => set({ authChecked: checked }),
+      // authChecked is NOT persisted — on a fresh page load we always
+      // re-verify the session cookie with the server. The operator object
+      // is persisted so navigation within the app doesn't flash to login,
+      // but we still confirm with the server on every full reload.
+      authChecked: false,
+      setAuthChecked: (checked) => set({ authChecked: checked }),
 
-  toastMessage: null,
-  toastIsError: false,
-  showToast: (msg, isError = false) => set({ toastMessage: msg, toastIsError: isError }),
-  hideToast: () => set({ toastMessage: null }),
-}))
+      toastMessage: null,
+      toastIsError: false,
+      showToast: (msg, isError = false) => set({ toastMessage: msg, toastIsError: isError }),
+      hideToast: () => set({ toastMessage: null }),
+    }),
+    {
+      name: 'splashpass_operator',
+      // Only persist the operator object — not authChecked or toast state
+      partialize: (state) => ({ operator: state.operator }),
+    }
+  )
+)
