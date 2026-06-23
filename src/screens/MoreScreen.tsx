@@ -16,9 +16,6 @@ export function MoreScreen() {
     try {
       await logout()
     } catch {
-      // Clear local state regardless — even if the server call fails,
-      // there's nothing useful the user can do except try again, and
-      // staying "logged in" client-side with a dead session helps no one.
       showToast('Logged out locally — server may not have cleared the session.', true)
     }
     setOperator(null)
@@ -50,6 +47,18 @@ export function MoreScreen() {
               Tier {operator?.commission_tier}
             </div>
           </div>
+        </div>
+
+        {/* Menu items */}
+        <div className="mb-3 flex flex-col gap-2">
+          <button
+            type="button"
+            onClick={() => navigate('/app/services')}
+            className="flex w-full items-center justify-between rounded-xl border border-white/[0.07] bg-white/[0.03] px-4 py-3.5 text-left"
+          >
+            <span className="text-[14px] font-semibold text-text">🚿 Services & Pricing</span>
+            <span className="text-muted">›</span>
+          </button>
         </div>
 
         {/* Log out */}
