@@ -9,6 +9,11 @@ interface AppState {
   authChecked: boolean
   setAuthChecked: (checked: boolean) => void
 
+  // True once zustand/persist has rehydrated from localStorage.
+  // AppShell must wait for this before deciding whether to redirect.
+  _hydrated: boolean
+  _setHydrated: () => void
+
   toastMessage: string | null
   toastIsError: boolean
   showToast: (msg: string, isError?: boolean) => void
@@ -21,12 +26,11 @@ export const useAppStore = create<AppState>()(
       operator: null,
       setOperator: (op) => set({ operator: op }),
 
-      // authChecked is NOT persisted — on a fresh page load we always
-      // re-verify the session cookie with the server. The operator object
-      // is persisted so navigation within the app doesn't flash to login,
-      // but we still confirm with the server on every full reload.
       authChecked: false,
       setAuthChecked: (checked) => set({ authChecked: checked }),
+
+      _hydrated: false,
+      _setHydrated: () => set({ _hydrated: true }),
 
       toastMessage: null,
       toastIsError: false,
@@ -35,8 +39,10 @@ export const useAppStore = create<AppState>()(
     }),
     {
       name: 'splashpass_operator',
-      // Only persist the operator object — not authChecked or toast state
       partialize: (state) => ({ operator: state.operator }),
+      onRehydrateStorage: () => (state) => {
+        state?._setHydrated()
+      },
     }
   )
 )

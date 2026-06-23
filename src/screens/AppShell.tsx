@@ -9,25 +9,30 @@ export function AppShell() {
   const setOperator = useAppStore((s) => s.setOperator)
   const authChecked = useAppStore((s) => s.authChecked)
   const setAuthChecked = useAppStore((s) => s.setAuthChecked)
+  const hydrated = useAppStore((s) => s._hydrated)
   const navigate = useNavigate()
 
   useEffect(() => {
-    // Operator already in store (e.g. just logged in) — no need to re-fetch
+    // Wait for persist to rehydrate before doing anything
+    if (!hydrated) return
+
+    // Operator already in store — trust it, skip server check
     if (operator) {
       setAuthChecked(true)
       return
     }
+
+    // No operator in store after hydration — verify with server
     if (authChecked) return
-    // Page refresh: no operator in store, check session cookie with server
     getCurrentOperator().then((op) => {
       setOperator(op)
       setAuthChecked(true)
       if (!op) navigate('/login', { replace: true })
     })
-  }, [authChecked, operator, setOperator, setAuthChecked, navigate])
+  }, [hydrated, authChecked, operator, setOperator, setAuthChecked, navigate])
 
-  // Still checking session on refresh
-  if (!authChecked && !operator) {
+  // Wait for hydration before rendering anything
+  if (!hydrated) {
     return (
       <div className="flex h-full w-full items-center justify-center bg-bg">
         <div className="h-8 w-8 animate-spin rounded-full border-[3px] border-gold/20 border-t-gold" />
@@ -39,12 +44,9 @@ export function AppShell() {
 
   return (
     <div className="flex h-full flex-col bg-bg">
-      {/* Scrollable screen content */}
       <div className="flex-1 overflow-y-auto pb-[calc(64px+env(safe-area-inset-bottom))]">
         <Outlet />
       </div>
-
-      {/* Fixed bottom nav */}
       <BottomNav />
     </div>
   )
