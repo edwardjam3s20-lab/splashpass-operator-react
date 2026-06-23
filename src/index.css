@@ -1,0 +1,36 @@
+@import "tailwindcss";
+
+@theme {
+  /* Matches operator_v4.html's real :root palette exactly (confirmed,
+     not guessed — this caused real bugs last time we guessed wrong). */
+  --color-bg: #07111f;
+  --color-s1: #0f1d30;
+  --color-s2: #162338;
+  --color-s3: #1d2d45;
+  --color-s4: #243350;
+  --color-gold: #ffb020;
+  --color-gold2: #ffd166;
+  --color-text: #f0f4f8;
+  --color-muted: #7a90a8;
+  --color-success: #22c55e;
+  --color-danger: #ef4444;
+  --color-warn: #f59e0b;
+  --color-info: #3b82f6;
+
+  --radius-app: 20px;
+  --radius-app-lg: 28px;
+
+  --font-display: 'Syne', sans-serif;
+  --font-body: 'Inter', sans-serif;
+}
+
+@layer base {
+  html, body, #root {
+    height: 100%;
+  }
+
+  body {
+    @apply bg-bg text-text font-body antialiased;
+    -webkit-tap-highlight-color: transparent;
+  }
+}
