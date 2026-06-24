@@ -16,23 +16,33 @@ export function AppShell() {
     // Wait for persist to rehydrate before doing anything
     if (!hydrated) return
 
-    // Operator already in store — trust it, skip server check
-    if (operator) {
-      setAuthChecked(true)
-      return
-    }
-
-    // No operator in store after hydration — verify with server
+    // Already revalidated this mount — don't re-fire on every render
     if (authChecked) return
+
+    // Show cached operator immediately (avoids the flash-redirect on
+    // refresh), but always confirm with the server in the background —
+    // a cached operator is a UX optimization, never the final word.
+    // If the server disagrees (session revoked, wash_point_id changed,
+    // operator deactivated), this corrects the cache and redirects.
     getCurrentOperator().then((op) => {
       setOperator(op)
       setAuthChecked(true)
       if (!op) navigate('/login', { replace: true })
     })
-  }, [hydrated, authChecked, operator, setOperator, setAuthChecked, navigate])
+  }, [hydrated, authChecked, setOperator, setAuthChecked, navigate])
 
   // Wait for hydration before rendering anything
   if (!hydrated) {
+    return (
+      <div className="flex h-full w-full items-center justify-center bg-bg">
+        <div className="h-8 w-8 animate-spin rounded-full border-[3px] border-gold/20 border-t-gold" />
+      </div>
+    )
+  }
+
+  // No cached operator and haven't confirmed yet — show loader rather than
+  // a real screen, since we don't yet know if this person is logged in.
+  if (!operator && !authChecked) {
     return (
       <div className="flex h-full w-full items-center justify-center bg-bg">
         <div className="h-8 w-8 animate-spin rounded-full border-[3px] border-gold/20 border-t-gold" />

@@ -5,6 +5,7 @@ import { HomeScreen } from './screens/HomeScreen'
 import { ScanScreen } from './screens/ScanScreen'
 import { EarningsScreen } from './screens/EarningsScreen'
 import { WashersScreen } from './screens/WashersScreen'
+import { ServicesScreen } from './screens/ServicesScreen'
 import { MoreScreen } from './screens/MoreScreen'
 import { Toast } from './components/Toast'
 
@@ -20,6 +21,7 @@ function App() {
             <Route path="scan" element={<ScanScreen />} />
             <Route path="earnings" element={<EarningsScreen />} />
             <Route path="washers" element={<WashersScreen />} />
+            <Route path="services" element={<ServicesScreen />} />
             <Route path="more" element={<MoreScreen />} />
           </Route>
           <Route path="*" element={<Navigate to="/login" replace />} />
