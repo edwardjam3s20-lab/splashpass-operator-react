@@ -44,14 +44,12 @@ npm run dev
 
 ## Confirmed backend routes
 
-All of the following have been read against real source (not guessed) at
-some point during development:
+Every route this app calls has been read against real source at some point
+during development — none are guessed:
 - `/api/operator/auth/{login,me,logout,change-password}`
 - `/api/operator/services` and `/api/operator/services/[id]`
 - `/api/operator/washers` and `/api/operator/washers/[id]`
 - `/api/operator/bookings` and `/api/operator/bookings/[id]` (including the
   action-based PATCH lifecycle: assign / start / complete / free)
 - `/api/operator/lookup`
-
-**Not yet confirmed:** `/api/operator/status`. If the status toggle on
-Home ever behaves unexpectedly, check this one first.
+- `/api/operator/status`
