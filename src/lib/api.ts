@@ -12,10 +12,10 @@ export class ApiError extends Error {
  * Every backend call in this app goes through here. Two things this
  * centralizes on purpose:
  *
- * 1. The base URL — currently splashmain's deployed Next.js app, but this
- *    is the ONLY place that's referenced, so relocating the backend later
- *    (see splashpass-api extraction plan) is a one-line env var change,
- *    not a find-and-replace across the codebase.
+ * 1. The base URL — splashmain's deployed Next.js app, which is the
+ *    permanent backend for this app (not a temporary arrangement). This
+ *    is still the ONLY place that URL is referenced, kept that way so any
+ *    future change (e.g. a custom domain) stays a one-line env var edit.
  *
  * 2. credentials: 'include' — required because the operator session is a
  *    cross-origin httpOnly cookie (this app's domain differs from the
