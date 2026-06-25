@@ -1,27 +1,41 @@
 @import "tailwindcss";
 
 @theme {
-  /* Matches operator_v4.html's real :root palette exactly (confirmed,
-     not guessed — this caused real bugs last time we guessed wrong). */
-  --color-bg: #07111f;
-  --color-s1: #0f1d30;
-  --color-s2: #162338;
-  --color-s3: #1d2d45;
-  --color-s4: #243350;
-  --color-gold: #ffb020;
-  --color-gold2: #ffd166;
-  --color-text: #f0f4f8;
-  --color-muted: #7a90a8;
-  --color-success: #22c55e;
-  --color-danger: #ef4444;
-  --color-warn: #f59e0b;
-  --color-info: #3b82f6;
+  /* Operational dashboard palette — dense, neutral, status-driven.
+     Background/surfaces are near-black neutrals (not navy) so that the
+     four status colors (waiting/assigned/washing/done) read unambiguously
+     without competing with a tinted chrome. This is deliberately closer
+     to Linear/Vercel/Stripe-dashboard territory than the previous
+     gold-on-navy consumer-app palette. */
+  --color-bg: #0a0e14;
+  --color-s1: #11161f;
+  --color-s2: #161c27;
+  --color-s3: #1d2430;
+  --color-s4: #262e3c;
+  --color-border: #232a37;
 
-  --radius-app: 20px;
-  --radius-app-lg: 28px;
+  --color-primary: #2962ff;
+  --color-primary2: #5b8aff;
 
-  --font-display: 'Syne', sans-serif;
+  --color-text: #eef1f6;
+  --color-muted: #8893a3;
+  --color-faint: #56606f;
+
+  --color-success: #00c853;
+  --color-danger: #ff5252;
+  --color-warn: #ffb300;
+  --color-info: #2962ff;
+
+  /* Kept for backward-compat with any not-yet-migrated gold references. */
+  --color-gold: #ffb300;
+  --color-gold2: #ffc94d;
+
+  --radius-app: 12px;
+  --radius-app-lg: 16px;
+
+  --font-display: 'Plus Jakarta Sans', sans-serif;
   --font-body: 'Inter', sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
 }
 
 @layer base {

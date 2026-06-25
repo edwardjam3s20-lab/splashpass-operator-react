@@ -35,7 +35,7 @@ export function AppShell() {
   if (!hydrated) {
     return (
       <div className="flex h-full w-full items-center justify-center bg-bg">
-        <div className="h-8 w-8 animate-spin rounded-full border-[3px] border-gold/20 border-t-gold" />
+        <div className="h-8 w-8 animate-spin rounded-full border-[3px] border-primary/20 border-t-primary" />
       </div>
     )
   }
@@ -45,7 +45,7 @@ export function AppShell() {
   if (!operator && !authChecked) {
     return (
       <div className="flex h-full w-full items-center justify-center bg-bg">
-        <div className="h-8 w-8 animate-spin rounded-full border-[3px] border-gold/20 border-t-gold" />
+        <div className="h-8 w-8 animate-spin rounded-full border-[3px] border-primary/20 border-t-primary" />
       </div>
     )
   }
@@ -54,7 +54,7 @@ export function AppShell() {
 
   return (
     <div className="flex h-full flex-col bg-bg">
-      <div className="flex-1 overflow-y-auto pb-[calc(64px+env(safe-area-inset-bottom))]">
+      <div className="flex-1 overflow-y-auto pb-[calc(72px+env(safe-area-inset-bottom))]">
         <Outlet />
       </div>
       <BottomNav />

@@ -160,7 +160,7 @@ function ServiceFormModal({
           value={form.name}
           onChange={(e) => set('name', e.target.value)}
           placeholder="e.g. Full Interior & Exterior"
-          className="mb-4 w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-text outline-none focus:border-gold/50"
+          className="mb-4 w-full rounded-xl border border-border bg-s2 px-4 py-3 text-sm text-text outline-none focus:border-primary/50"
         />
 
         {/* Description */}
@@ -171,7 +171,7 @@ function ServiceFormModal({
           value={form.description}
           onChange={(e) => set('description', e.target.value)}
           placeholder="e.g. Vacuum, wipe, exterior wash"
-          className="mb-4 w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-text outline-none focus:border-gold/50"
+          className="mb-4 w-full rounded-xl border border-border bg-s2 px-4 py-3 text-sm text-text outline-none focus:border-primary/50"
         />
 
         {/* Price + Duration row */}
@@ -185,7 +185,7 @@ function ServiceFormModal({
               value={form.price}
               onChange={(e) => set('price', e.target.value)}
               placeholder="e.g. 800"
-              className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-text outline-none focus:border-gold/50"
+              className="w-full rounded-xl border border-border bg-s2 px-4 py-3 text-sm text-text outline-none focus:border-primary/50"
             />
           </div>
           <div>
@@ -197,7 +197,7 @@ function ServiceFormModal({
               value={form.duration}
               onChange={(e) => set('duration', e.target.value)}
               placeholder="e.g. 30"
-              className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-text outline-none focus:border-gold/50"
+              className="w-full rounded-xl border border-border bg-s2 px-4 py-3 text-sm text-text outline-none focus:border-primary/50"
             />
           </div>
         </div>
@@ -211,14 +211,14 @@ function ServiceFormModal({
           onChange={(e) => set('icon', e.target.value)}
           placeholder="🚗"
           maxLength={4}
-          className="mb-4 w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-text outline-none focus:border-gold/50"
+          className="mb-4 w-full rounded-xl border border-border bg-s2 px-4 py-3 text-sm text-text outline-none focus:border-primary/50"
         />
 
         {/* Car-type prices toggle */}
         <button
           type="button"
           onClick={() => setShowCarPrices((v) => !v)}
-          className="mb-3 flex w-full items-center justify-between rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3"
+          className="mb-3 flex w-full items-center justify-between rounded-xl border border-border bg-s1 px-4 py-3"
         >
           <span className="text-[13px] font-semibold text-text">Price by Car Type</span>
           <span className="text-[12px] text-muted">{showCarPrices ? '▲ Hide' : '▼ Optional'}</span>
@@ -236,7 +236,7 @@ function ServiceFormModal({
                   value={form.carPrices[t]}
                   onChange={(e) => setCarPrice(t, e.target.value)}
                   placeholder="e.g. 500"
-                  className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2.5 text-sm text-text outline-none focus:border-gold/50"
+                  className="w-full rounded-xl border border-border bg-s2 px-3 py-2.5 text-sm text-text outline-none focus:border-primary/50"
                 />
               </div>
             ))}
@@ -247,14 +247,14 @@ function ServiceFormModal({
           type="button"
           disabled={saving || !form.name.trim() || !form.price}
           onClick={handleSave}
-          className="mb-2.5 w-full rounded-xl bg-gold py-3.5 text-sm font-bold text-bg disabled:opacity-50"
+          className="mb-2.5 w-full rounded-xl bg-primary py-3.5 text-sm font-bold text-bg disabled:opacity-50"
         >
           {saving ? 'Saving…' : 'Save Service'}
         </button>
         <button
           type="button"
           onClick={onClose}
-          className="w-full rounded-xl border border-white/10 bg-white/[0.04] py-3 text-[13px] font-semibold text-text"
+          className="w-full rounded-xl border border-border bg-s2 py-3 text-[13px] font-semibold text-text"
         >
           Cancel
         </button>
@@ -314,17 +314,17 @@ export function ServicesScreen() {
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
-      <div className="sticky top-0 z-10 flex items-center gap-3 border-b border-white/[0.05] bg-bg/90 px-4 pb-3 pt-12 backdrop-blur-xl">
+      <div className="sticky top-0 z-10 flex items-center gap-3 border-b border-border bg-bg/90 px-4 pb-3 pt-12 backdrop-blur-xl">
         <button
           onClick={() => navigate('/app/more')}
-          className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/[0.06] text-text"
+          className="flex h-9 w-9 items-center justify-center rounded-xl bg-s2 text-text"
         >
           ←
         </button>
         <h2 className="flex-1 font-display text-xl font-extrabold text-text">Services</h2>
         <button
           onClick={() => setFormOpen(true)}
-          className="rounded-xl border border-gold/25 bg-gold/10 px-3.5 py-2 text-[12px] font-bold text-gold"
+          className="rounded-xl border border-primary/25 bg-primary/10 px-3.5 py-2 text-[12px] font-bold text-primary2"
         >
           + Add
         </button>
@@ -340,15 +340,15 @@ export function ServicesScreen() {
 
         {isLoading ? (
           <div className="flex justify-center py-10">
-            <div className="h-7 w-7 animate-spin rounded-full border-[3px] border-gold/20 border-t-gold" />
+            <div className="h-7 w-7 animate-spin rounded-full border-[3px] border-primary/20 border-t-primary" />
           </div>
         ) : services.length === 0 ? (
-          <div className="flex flex-col items-center rounded-2xl border border-white/[0.05] bg-white/[0.02] py-12 text-center">
+          <div className="flex flex-col items-center rounded-2xl border border-border bg-s1 py-12 text-center">
             <div className="mb-2 text-4xl">🚿</div>
             <div className="mb-4 text-[13px] text-muted">No services yet</div>
             <button
               onClick={() => setFormOpen(true)}
-              className="rounded-xl bg-gradient-to-b from-gold2 to-gold px-5 py-2.5 text-[13px] font-bold text-bg"
+              className="rounded-xl bg-primary px-5 py-2.5 text-[13px] font-bold text-white"
             >
               Add First Service
             </button>
@@ -363,10 +363,10 @@ export function ServicesScreen() {
               return (
                 <div
                   key={s.id}
-                  className="rounded-[18px] border border-white/[0.06] bg-white/[0.03] p-4"
+                  className="rounded-xl border border-border bg-s1 p-4"
                 >
                   <div className="mb-2 flex items-start gap-3">
-                    <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-gold/10 text-2xl">
+                    <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-primary/10 text-2xl">
                       {s.icon || '🚿'}
                     </div>
                     <div className="min-w-0 flex-1">
@@ -380,7 +380,7 @@ export function ServicesScreen() {
                       </div>
                     </div>
                     <div className="flex-shrink-0 text-right">
-                      <div className="font-display text-[16px] font-extrabold text-gold">
+                      <div className="font-display text-[16px] font-extrabold text-primary2">
                         {fmtKes(s.price)}
                       </div>
                       <div className="text-[10px] text-muted">base price</div>
@@ -393,7 +393,7 @@ export function ServicesScreen() {
                       {carPrices.map((t) => (
                         <span
                           key={t}
-                          className="rounded-full border border-white/[0.07] bg-white/[0.04] px-2.5 py-0.5 text-[10px] font-semibold text-muted"
+                          className="rounded-full border border-border bg-s2 px-2.5 py-0.5 text-[10px] font-semibold text-muted"
                         >
                           {CAR_LABELS[t]}: {fmtKes(Number(s[`price_${t}` as keyof Service]))}
                         </span>
@@ -412,7 +412,7 @@ export function ServicesScreen() {
                       </button>
                       <button
                         onClick={() => setConfirmDeleteId(null)}
-                        className="flex-1 rounded-xl border border-white/10 px-3 py-2.5 text-[12px] font-semibold text-muted"
+                        className="flex-1 rounded-xl border border-border px-3 py-2.5 text-[12px] font-semibold text-muted"
                       >
                         Cancel
                       </button>
@@ -421,7 +421,7 @@ export function ServicesScreen() {
                     <div className="flex gap-2">
                       <button
                         onClick={() => setEditing(s)}
-                        className="flex-1 rounded-xl border border-white/[0.07] bg-white/[0.03] py-2.5 text-[12px] font-semibold text-text"
+                        className="flex-1 rounded-xl border border-border bg-s1 py-2.5 text-[12px] font-semibold text-text"
                       >
                         ✏️ Edit
                       </button>

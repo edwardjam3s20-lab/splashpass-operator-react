@@ -1,8 +1,27 @@
 import { useEffect, useRef, useState } from 'react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '../lib/api'
 import { useAppStore } from '../store/useAppStore'
-import type { Booking } from '../types'
+import { fetchWashers } from '../lib/washers'
+import { assignWasher, isWasherBusyError } from '../lib/bookings'
+import { fmtKes, initials } from '../lib/operations'
+import type { Booking, Washer } from '../types'
+
+// Ambient typing for the two browser-only QR detection paths this screen
+// supports: the native BarcodeDetector API (where available) and the
+// jsQR fallback loaded via <script> in index.html for browsers without it.
+declare global {
+  interface Window {
+    BarcodeDetector?: new (options: { formats: string[] }) => {
+      detect: (source: CanvasImageSource) => Promise<{ rawValue: string }[]>
+    }
+    jsQR?: (
+      data: Uint8ClampedArray,
+      width: number,
+      height: number
+    ) => { data: string } | null
+  }
+}
 
 // ── Types ─────────────────────────────────────────
 interface LookupResult {
@@ -26,96 +45,142 @@ async function completeBookingById(id: string): Promise<void> {
   })
 }
 
-function fmtKes(n: number) {
-  return 'KES ' + Number(n).toLocaleString()
+// ── AssignInline — opens directly inside the verified sheet, no dead end ──
+function AssignInline({
+  washers,
+  busyWasherIds,
+  onAssign,
+  assigning,
+}: {
+  washers: Washer[]
+  busyWasherIds: Set<string>
+  onAssign: (washerId: string) => void
+  assigning: boolean
+}) {
+  if (washers.length === 0) {
+    return <p className="py-4 text-center text-[12px] text-faint">No washers on roster yet. Add staff from the Team tab.</p>
+  }
+  return (
+    <div className="flex flex-col gap-2">
+      {washers.map((w) => {
+        const busy = busyWasherIds.has(String(w.id))
+        return (
+          <button
+            key={w.id}
+            disabled={busy || assigning}
+            onClick={() => onAssign(w.id)}
+            className={[
+              'flex items-center gap-3 rounded-xl border px-3.5 py-2.5 text-left',
+              busy ? 'border-border bg-s2 opacity-40' : 'border-border bg-s2 active:bg-s3',
+            ].join(' ')}
+          >
+            <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-primary/15 font-display text-[11px] font-bold text-primary2">
+              {initials(w.name)}
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-[13px] font-semibold text-text">{w.name}</div>
+              <div className="text-[10px] text-faint">{w.role || 'Washer'}</div>
+            </div>
+            <span className={['text-[11px] font-semibold', busy ? 'text-faint' : 'text-success'].join(' ')}>
+              {busy ? 'Busy' : 'Available'}
+            </span>
+          </button>
+        )
+      })}
+    </div>
+  )
 }
 
-// ── Verified modal ────────────────────────────────
-function VerifiedModal({
+// ── Verified sheet ────────────────────────────────
+function VerifiedSheet({
   booking,
   userName,
-  onCheckIn,
+  washers,
+  busyWasherIds,
+  onAssign,
+  assigning,
   onMarkDone,
   onClose,
   completing,
 }: {
   booking: Booking
   userName: string
-  onCheckIn: () => void
+  washers: Washer[]
+  busyWasherIds: Set<string>
+  onAssign: (washerId: string) => void
+  assigning: boolean
   onMarkDone: () => void
   onClose: () => void
   completing: boolean
 }) {
+  const [showAssign, setShowAssign] = useState(false)
   const plate = booking.car_plate || '—'
   const amount = booking.operator_amount || booking.total_amount || 0
-  const initials = (name: string) =>
-    name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase()
 
   return (
-    <div
-      className="fixed inset-0 z-[200] flex items-end justify-center bg-black/70 backdrop-blur-sm"
-      onClick={onClose}
-    >
+    <div className="fixed inset-0 z-[200] flex items-end justify-center bg-black/70 backdrop-blur-sm" onClick={onClose}>
       <div
-        className="w-full max-w-lg rounded-t-[28px] bg-s1 px-5 pt-6"
-        style={{ paddingBottom: 'calc(32px + env(safe-area-inset-bottom))' }}
+        className="w-full max-w-lg rounded-t-2xl bg-s1 px-5 pt-6"
+        style={{ paddingBottom: 'calc(28px + env(safe-area-inset-bottom))' }}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="mx-auto mb-5 h-1 w-10 rounded-full bg-white/10" />
+        <div className="mx-auto mb-5 h-1 w-10 rounded-full bg-border" />
 
-        {/* Header */}
         <div className="mb-4 flex items-center gap-3">
-          <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl bg-success/15 font-display text-base font-extrabold text-success">
+          <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-success/15 font-display text-[14px] font-extrabold text-success">
             {initials(userName)}
           </div>
-          <div>
-            <div className="text-[16px] font-bold text-text">{userName}</div>
-            <div className="text-[13px] text-muted">{plate}</div>
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-[15px] font-bold text-text">{userName}</div>
+            <div className="font-mono text-[12px] text-faint">{plate}</div>
           </div>
-          <div className="ml-auto rounded-full bg-success/15 px-3 py-1 text-[11px] font-bold text-success">
-            ✓ Verified
-          </div>
+          <div className="flex-shrink-0 rounded-full bg-success/15 px-2.5 py-1 text-[11px] font-bold text-success">Verified</div>
         </div>
 
-        {/* Details */}
-        <div className="mb-4 flex flex-col gap-0 rounded-[16px] border border-white/[0.06] bg-white/[0.03] overflow-hidden">
-          {[
-            { label: 'Service', value: booking.service_name || '—' },
-            { label: 'Time', value: booking.time || '—' },
-            { label: 'Total', value: amount ? fmtKes(amount) : 'Paid' },
-            { label: 'Status', value: booking.status, highlight: true },
-          ].map(({ label, value, highlight }) => (
-            <div key={label} className="flex items-center justify-between border-b border-white/[0.05] px-4 py-3 last:border-0">
-              <span className="text-[13px] text-muted">{label}</span>
-              <span className={['text-[13px] font-semibold', highlight ? 'text-success' : 'text-text'].join(' ')}>
-                {value}
-              </span>
-            </div>
-          ))}
-        </div>
+        {!showAssign && (
+          <div className="mb-4 flex flex-col overflow-hidden rounded-xl border border-border">
+            {[
+              { label: 'Service', value: booking.service_name || '—' },
+              { label: 'Time', value: booking.time || '—' },
+              { label: 'Total', value: amount ? fmtKes(amount) : 'Paid' },
+              { label: 'Status', value: booking.status, highlight: true },
+            ].map(({ label, value, highlight }) => (
+              <div key={label} className="flex items-center justify-between border-b border-border bg-s2 px-3.5 py-2.5 last:border-0">
+                <span className="text-[12px] text-faint">{label}</span>
+                <span className={['text-[12px] font-semibold', highlight ? 'text-success' : 'text-text'].join(' ')}>{value}</span>
+              </div>
+            ))}
+          </div>
+        )}
 
-        {/* Actions */}
-        <div className="flex flex-col gap-2.5">
-          <button
-            onClick={onCheckIn}
-            className="w-full rounded-xl bg-gradient-to-b from-gold2 to-gold py-3.5 font-display text-[13px] font-bold text-bg"
-          >
-            👷 Assign Washer & Check In
-          </button>
-          <button
-            onClick={onMarkDone}
-            disabled={completing}
-            className="w-full rounded-xl border border-success/25 bg-success/10 py-3.5 text-[13px] font-bold text-success disabled:opacity-50"
-          >
-            {completing ? 'Marking done…' : '✓ Mark Done (no assignment)'}
-          </button>
-          <button
-            onClick={onClose}
-            className="w-full rounded-xl border border-white/10 bg-white/[0.04] py-3 text-[13px] font-semibold text-text"
-          >
-            Cancel
-          </button>
-        </div>
+        {showAssign ? (
+          <>
+            <div className="mb-3 text-[12px] font-semibold text-muted">Assign a washer</div>
+            <AssignInline washers={washers} busyWasherIds={busyWasherIds} onAssign={onAssign} assigning={assigning} />
+            <button onClick={() => setShowAssign(false)} className="mt-3 w-full rounded-xl border border-border bg-s2 py-2.5 text-[12px] font-semibold text-text">
+              Back
+            </button>
+          </>
+        ) : (
+          <div className="flex flex-col gap-2.5">
+            <button
+              onClick={() => setShowAssign(true)}
+              className="w-full rounded-xl bg-primary py-3.5 font-display text-[13px] font-bold text-white"
+            >
+              Assign washer & check in
+            </button>
+            <button
+              onClick={onMarkDone}
+              disabled={completing}
+              className="w-full rounded-xl border border-success/25 bg-success/10 py-3.5 text-[13px] font-bold text-success disabled:opacity-50"
+            >
+              {completing ? 'Marking done…' : 'Mark done (no assignment)'}
+            </button>
+            <button onClick={onClose} className="w-full rounded-xl border border-border bg-s2 py-3 text-[13px] font-semibold text-text">
+              Cancel
+            </button>
+          </div>
+        )}
       </div>
     </div>
   )
@@ -138,18 +203,52 @@ export function ScanScreen() {
   const [lookupError, setLookupError] = useState<string | null>(null)
   const [lookupLoading, setLookupLoading] = useState(false)
 
-  // Verified booking modal
+  // Verified booking sheet
   const [verified, setVerified] = useState<{ booking: Booking; userName: string } | null>(null)
+
+  const { data: washersData } = useQuery({
+    queryKey: ['washers'],
+    queryFn: fetchWashers,
+    staleTime: 60_000,
+  })
+  const washers = washersData?.washers ?? []
+
+  const { data: recentScans = [] } = useQuery({
+    queryKey: ['bookings', 'today'],
+    queryFn: async () => {
+      const data = await apiFetch<{ bookings: Booking[] }>(`/api/operator/bookings?date=${new Date().toISOString().split('T')[0]}`)
+      return data.bookings || []
+    },
+    staleTime: 30_000,
+  })
+  const busyWasherIds = new Set(
+    recentScans.filter((b) => b.status !== 'completed' && b.assigned_washer_id).map((b) => String(b.assigned_washer_id))
+  )
+
+  function invalidateBookings() {
+    queryClient.invalidateQueries({ queryKey: ['bookings', 'today'] })
+  }
 
   const completeMutation = useMutation({
     mutationFn: completeBookingById,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['bookings', 'today'] })
-      showToast('✓ Wash marked done! Points added.')
+      invalidateBookings()
+      showToast('Wash marked done — points added')
       setVerified(null)
       resetScan()
     },
     onError: (e: Error) => showToast(e.message, true),
+  })
+
+  const assignMutation = useMutation({
+    mutationFn: ({ bookingId, washerId }: { bookingId: string; washerId: string }) => assignWasher(bookingId, washerId),
+    onSuccess: () => {
+      invalidateBookings()
+      showToast('Washer assigned — checked in')
+      setVerified(null)
+      resetScan()
+    },
+    onError: (e: Error) => showToast(isWasherBusyError(e) ? 'That washer is already on another job.' : e.message, true),
   })
 
   // Clean up camera on unmount
@@ -189,21 +288,16 @@ export function ScanScreen() {
     if (!ctx) return
     ctx.drawImage(video, 0, 0)
 
-    // Prefer native BarcodeDetector if available (Chrome/Android)
-    if ('BarcodeDetector' in window) {
-      // @ts-ignore
+    if ('BarcodeDetector' in window && window.BarcodeDetector) {
       const detector = new window.BarcodeDetector({ formats: ['qr_code'] })
-      detector.detect(canvas).then((codes: { rawValue: string }[]) => {
+      detector.detect(canvas).then((codes) => {
         if (codes.length > 0) { stopCamera(); processQR(codes[0].rawValue) }
       }).catch(() => {})
       return
     }
 
-    // Fallback: jsQR via CDN (loaded in index.html)
-    // @ts-ignore
     if (typeof window.jsQR === 'function') {
       const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
-      // @ts-ignore
       const code = window.jsQR(imageData.data, imageData.width, imageData.height)
       if (code?.data) { stopCamera(); processQR(code.data) }
     }
@@ -225,6 +319,7 @@ export function ScanScreen() {
   function resetScan() {
     stopCamera()
     setCameraError(null)
+    setPlate('')
   }
 
   async function handleLookup() {
@@ -234,15 +329,9 @@ export function ScanScreen() {
     setLookupLoading(true)
     try {
       const result = await lookupByPlate(p)
-      if (!result?.user) {
-        setLookupError(`No customer found with plate ${p}.`); return
-      }
-      if (!result.booking) {
-        setLookupError(`No booking today for ${p}. Customer: ${result.user.name}`); return
-      }
-      if (result.booking.status === 'completed') {
-        setLookupError('This booking is already completed.'); return
-      }
+      if (!result?.user) { setLookupError(`No customer found with plate ${p}.`); return }
+      if (!result.booking) { setLookupError(`No booking today for ${p}. Customer: ${result.user.name}`); return }
+      if (result.booking.status === 'completed') { setLookupError('This booking is already completed.'); return }
       setVerified({ booking: result.booking, userName: result.user.name })
     } catch (e: unknown) {
       setLookupError(e instanceof Error ? e.message : 'Lookup failed.')
@@ -251,43 +340,36 @@ export function ScanScreen() {
     }
   }
 
-  function handleCheckIn() {
-    // Navigate to home where assign modal is — pass booking id via state or just close modal
-    // For now: close modal and show toast directing operator to home queue
-    setVerified(null)
-    showToast('Find the booking in today\'s queue to assign a washer.')
-  }
+  const recent = recentScans
+    .filter((b) => b.assigned_at || b.wash_started_at || b.status === 'completed')
+    .slice(0, 5)
 
   return (
     <div className="flex h-full flex-col">
-      {/* Header */}
-      <div className="sticky top-0 z-10 border-b border-white/[0.05] bg-bg/90 px-4 pb-3 pt-12 backdrop-blur-xl">
-        <h2 className="font-display text-xl font-extrabold text-text">Scan</h2>
+      <div className="sticky top-0 z-10 border-b border-border bg-bg/90 px-4 pb-3 pt-12 backdrop-blur-xl">
+        <h2 className="font-display text-lg font-extrabold text-text">Scan vehicle</h2>
       </div>
 
       <div className="flex-1 overflow-y-auto">
-        {/* QR Camera section */}
         <div className="px-4 pt-4">
-          <div className="mb-1 text-[10px] font-bold uppercase tracking-wide text-muted">Scan QR Code</div>
+          <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted">Scan QR code</div>
 
-          <div className="relative overflow-hidden rounded-[20px] border border-white/[0.07] bg-black">
-            {/* Video */}
+          <div className="relative overflow-hidden rounded-2xl border border-border bg-black">
             <video
               ref={videoRef}
               playsInline
               muted
               className="w-full"
-              style={{ display: cameraActive ? 'block' : 'none', borderRadius: 20 }}
+              style={{ display: cameraActive ? 'block' : 'none', borderRadius: 16 }}
             />
 
-            {/* Scan overlay corners */}
             {cameraActive && (
               <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
                 <div className="relative h-48 w-48">
                   {['top-0 left-0', 'top-0 right-0', 'bottom-0 left-0', 'bottom-0 right-0'].map((pos, i) => (
                     <span
                       key={i}
-                      className={`absolute h-8 w-8 border-gold ${pos} ${
+                      className={`absolute h-8 w-8 border-primary2 ${pos} ${
                         i === 0 ? 'border-t-2 border-l-2 rounded-tl-lg' :
                         i === 1 ? 'border-t-2 border-r-2 rounded-tr-lg' :
                         i === 2 ? 'border-b-2 border-l-2 rounded-bl-lg' :
@@ -295,56 +377,53 @@ export function ScanScreen() {
                       }`}
                     />
                   ))}
-                  {/* Scan line animation */}
-                  <div className="absolute inset-x-0 top-0 h-0.5 animate-[scan_2s_linear_infinite] bg-gold/70 shadow-[0_0_8px_rgba(255,176,32,0.8)]" />
+                  <div className="absolute inset-x-0 top-0 h-0.5 animate-[scan_2s_linear_infinite] bg-primary2/80 shadow-[0_0_8px_rgba(91,138,255,0.8)]" />
                 </div>
               </div>
             )}
 
-            {/* Prompt (camera not active) */}
             {!cameraActive && (
-              <div className="flex flex-col items-center justify-center gap-4 px-6 py-10 text-center">
-                <div className="text-4xl">📷</div>
+              <div className="flex flex-col items-center justify-center gap-4 px-6 py-12 text-center">
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl border-2 border-primary2/40">
+                  <svg viewBox="0 0 24 24" className="h-6 w-6 fill-none stroke-primary2 stroke-2">
+                    <path d="M4 8V5a1 1 0 011-1h3M20 8V5a1 1 0 00-1-1h-3M4 16v3a1 1 0 001 1h3M20 16v3a1 1 0 01-1 1h-3" strokeLinecap="round" strokeLinejoin="round" />
+                    <path d="M4 12h16" strokeLinecap="round" />
+                  </svg>
+                </div>
                 <div>
-                  <div className="mb-1 text-[15px] font-semibold text-text">Point camera at QR code</div>
-                  <div className="text-[13px] text-muted">Scan the customer's wash pass</div>
+                  <div className="mb-1 text-[14px] font-semibold text-text">Point camera at QR code</div>
+                  <div className="text-[12px] text-faint">Scan the customer's wash pass</div>
                 </div>
                 {cameraError && (
-                  <div className="rounded-xl border border-danger/20 bg-danger/10 px-4 py-2.5 text-[12px] text-danger">
+                  <div className="rounded-xl border border-danger/25 bg-danger/10 px-4 py-2.5 text-[12px] text-danger">
                     {cameraError}
                   </div>
                 )}
-                <button
-                  onClick={startCamera}
-                  className="rounded-xl bg-gradient-to-b from-gold2 to-gold px-6 py-3 font-display text-[13px] font-bold text-bg"
-                >
-                  Open Camera
+                <button onClick={startCamera} className="rounded-xl bg-primary px-6 py-3 font-display text-[13px] font-bold text-white">
+                  Open camera
                 </button>
               </div>
             )}
 
-            {/* Stop camera button */}
             {cameraActive && (
               <button
                 onClick={resetScan}
-                className="absolute right-3 top-3 rounded-xl border border-white/20 bg-black/60 px-3 py-1.5 text-[12px] font-semibold text-white backdrop-blur-sm"
+                className="absolute right-3 top-3 rounded-lg border border-white/20 bg-black/60 px-3 py-1.5 text-[12px] font-semibold text-white backdrop-blur-sm"
               >
-                ✕ Stop
+                Stop
               </button>
             )}
           </div>
         </div>
 
-        {/* Divider */}
         <div className="my-5 flex items-center gap-3 px-4">
-          <div className="flex-1 border-t border-white/[0.07]" />
-          <span className="text-[11px] font-semibold uppercase tracking-widest text-muted">or</span>
-          <div className="flex-1 border-t border-white/[0.07]" />
+          <div className="flex-1 border-t border-border" />
+          <span className="text-[10px] font-semibold uppercase tracking-widest text-faint">or</span>
+          <div className="flex-1 border-t border-border" />
         </div>
 
-        {/* Plate lookup */}
-        <div className="px-4 pb-8">
-          <div className="mb-2 text-[10px] font-bold uppercase tracking-wide text-muted">Search by Plate</div>
+        <div className="px-4">
+          <div className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted">Search by plate</div>
 
           <input
             type="text"
@@ -352,11 +431,11 @@ export function ScanScreen() {
             onChange={(e) => setPlate(e.target.value.toUpperCase())}
             onKeyDown={(e) => e.key === 'Enter' && handleLookup()}
             placeholder="KCA 123A"
-            className="mb-3 w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3.5 font-display text-[18px] font-bold tracking-[4px] text-text placeholder:text-muted/40 placeholder:tracking-[2px] placeholder:text-base placeholder:font-normal outline-none focus:border-gold/50"
+            className="mb-3 w-full rounded-xl border border-border bg-s2 px-4 py-3.5 font-mono text-[17px] font-semibold tracking-[3px] text-text placeholder:text-faint placeholder:tracking-[2px] outline-none focus:border-primary/60"
           />
 
           {lookupError && (
-            <div className="mb-3 rounded-xl border border-danger/20 bg-danger/10 px-4 py-2.5 text-[12px] text-danger">
+            <div className="mb-3 rounded-xl border border-danger/25 bg-danger/10 px-4 py-2.5 text-[12px] text-danger">
               {lookupError}
             </div>
           )}
@@ -364,19 +443,41 @@ export function ScanScreen() {
           <button
             onClick={handleLookup}
             disabled={lookupLoading}
-            className="w-full rounded-xl border border-gold/25 bg-gold/10 py-3.5 font-display text-[13px] font-bold text-gold disabled:opacity-50"
+            className="w-full rounded-xl border border-primary/30 bg-primary/10 py-3.5 font-display text-[13px] font-bold text-primary2 disabled:opacity-50"
           >
-            {lookupLoading ? 'Searching…' : '🔍 Search Plate'}
+            {lookupLoading ? 'Searching…' : 'Search plate'}
           </button>
         </div>
+
+        {recent.length > 0 && (
+          <div className="mt-6 px-4 pb-8">
+            <div className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted">Recent scans</div>
+            <div className="flex flex-col gap-2">
+              {recent.map((b) => (
+                <div key={b.id} className="flex items-center gap-3 rounded-xl border border-border bg-s1 px-3.5 py-2.5">
+                  <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-s2 font-mono text-[10px] font-bold text-muted">
+                    {(b.car_plate || '—').slice(0, 4)}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-[12px] font-semibold text-text">{b.car_plate || b.user_name}</div>
+                    <div className="text-[10px] text-faint">{b.time}</div>
+                  </div>
+                  <span className="flex-shrink-0 text-[10px] font-bold text-faint capitalize">{b.status}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Verified modal */}
       {verified && (
-        <VerifiedModal
+        <VerifiedSheet
           booking={verified.booking}
           userName={verified.userName}
-          onCheckIn={handleCheckIn}
+          washers={washers}
+          busyWasherIds={busyWasherIds}
+          assigning={assignMutation.isPending}
+          onAssign={(washerId) => assignMutation.mutate({ bookingId: verified.booking.id, washerId })}
           onMarkDone={() => completeMutation.mutate(verified.booking.id)}
           onClose={() => { setVerified(null); resetScan() }}
           completing={completeMutation.isPending}

@@ -2,12 +2,28 @@ import { useLocation, useNavigate } from 'react-router-dom'
 
 const NAV_ITEMS = [
   {
-    id: 'home',
-    label: 'Home',
-    path: '/app/home',
+    id: 'dashboard',
+    label: 'Dashboard',
+    path: '/app/dashboard',
     icon: (
       <svg viewBox="0 0 24 24" className="h-5 w-5 fill-current">
-        <path d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1h-5v-7H9v7H4a1 1 0 01-1-1V9.5z" />
+        <rect x="3" y="3" width="8" height="10" rx="2" />
+        <rect x="13" y="3" width="8" height="6" rx="2" />
+        <rect x="13" y="11" width="8" height="10" rx="2" />
+        <rect x="3" y="15" width="8" height="6" rx="2" />
+      </svg>
+    ),
+  },
+  {
+    id: 'queue',
+    label: 'Queue',
+    path: '/app/queue',
+    icon: (
+      <svg viewBox="0 0 24 24" className="h-5 w-5 fill-none stroke-current stroke-[1.8]">
+        <path d="M4 6h4M4 12h4M4 18h4" strokeLinecap="round" />
+        <rect x="11" y="4" width="9" height="4" rx="1" />
+        <rect x="11" y="10" width="9" height="4" rx="1" />
+        <rect x="11" y="16" width="9" height="4" rx="1" />
       </svg>
     ),
   },
@@ -16,31 +32,21 @@ const NAV_ITEMS = [
     label: 'Scan',
     path: '/app/scan',
     icon: (
-      <svg viewBox="0 0 24 24" className="h-5 w-5 fill-current">
-        <rect x="3" y="3" width="7" height="7" />
-        <rect x="14" y="3" width="7" height="7" />
-        <rect x="3" y="14" width="7" height="7" />
-        <path d="M14 14h3v3h-3zM18 14h3v3h-3zM14 18h3v3h-3zM18 18h3v3h-3z" />
+      <svg viewBox="0 0 24 24" className="h-6 w-6 fill-none stroke-current stroke-2">
+        <path d="M4 8V5a1 1 0 011-1h3M20 8V5a1 1 0 00-1-1h-3M4 16v3a1 1 0 001 1h3M20 16v3a1 1 0 01-1 1h-3" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M4 12h16" strokeLinecap="round" />
       </svg>
     ),
   },
   {
-    id: 'washers',
-    label: 'Wash',
-    path: '/app/washers',
+    id: 'team',
+    label: 'Team',
+    path: '/app/team',
     icon: (
       <svg viewBox="0 0 24 24" className="h-5 w-5 fill-current">
-        <path d="M12 2a4 4 0 014 4v2h2a2 2 0 012 2v10a2 2 0 01-2 2H6a2 2 0 01-2-2V10a2 2 0 012-2h2V6a4 4 0 014-4z" />
-      </svg>
-    ),
-  },
-  {
-    id: 'earnings',
-    label: 'Earnings',
-    path: '/app/earnings',
-    icon: (
-      <svg viewBox="0 0 24 24" className="h-5 w-5 fill-none stroke-current stroke-[1.5]">
-        <path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" strokeLinecap="round" strokeLinejoin="round" />
+        <circle cx="9" cy="8" r="3.2" />
+        <path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6" />
+        <circle cx="17.5" cy="8.5" r="2.4" opacity="0.55" />
       </svg>
     ),
   },
@@ -50,9 +56,10 @@ const NAV_ITEMS = [
     path: '/app/more',
     icon: (
       <svg viewBox="0 0 24 24" className="h-5 w-5 fill-current">
-        <circle cx="12" cy="5" r="1.5" />
-        <circle cx="12" cy="12" r="1.5" />
-        <circle cx="12" cy="19" r="1.5" />
+        <rect x="3" y="3" width="7" height="7" rx="1.5" />
+        <rect x="14" y="3" width="7" height="7" rx="1.5" />
+        <rect x="3" y="14" width="7" height="7" rx="1.5" />
+        <rect x="14" y="14" width="7" height="7" rx="1.5" />
       </svg>
     ),
   },
@@ -64,30 +71,58 @@ export function BottomNav() {
 
   return (
     <nav
-      className="fixed bottom-0 left-0 right-0 z-50 flex items-center border-t border-white/[0.07] bg-s1/95 backdrop-blur-xl"
-      style={{ paddingBottom: 'calc(8px + env(safe-area-inset-bottom))' }}
+      className="fixed bottom-0 left-0 right-0 z-50 flex items-end justify-between border-t border-border bg-s1/95 px-1 backdrop-blur-xl"
+      style={{ paddingBottom: 'calc(6px + env(safe-area-inset-bottom))' }}
     >
       {NAV_ITEMS.map((item) => {
-        const active = location.pathname === item.path
+        const active = location.pathname.startsWith(item.path)
+        const isScan = item.id === 'scan'
+
+        if (isScan) {
+          return (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => navigate(item.path)}
+              className="relative flex flex-1 flex-col items-center gap-1 pb-1 pt-2"
+              aria-label="Scan"
+            >
+              <span
+                className={[
+                  '-mt-5 flex h-12 w-12 items-center justify-center rounded-2xl shadow-lg transition-colors duration-150',
+                  active
+                    ? 'bg-primary text-white shadow-primary/30'
+                    : 'bg-primary/90 text-white shadow-primary/20',
+                ].join(' ')}
+              >
+                {item.icon}
+              </span>
+              <span
+                className={[
+                  'font-display text-[10px] font-semibold uppercase tracking-wide',
+                  active ? 'text-primary2' : 'text-muted',
+                ].join(' ')}
+              >
+                {item.label}
+              </span>
+            </button>
+          )
+        }
+
         return (
           <button
             key={item.id}
             type="button"
             onClick={() => navigate(item.path)}
-            className="flex flex-1 flex-col items-center gap-1 px-1 pt-2 pb-1"
+            className="flex flex-1 flex-col items-center gap-1 px-1 pb-1 pt-2.5"
           >
-            <span
-              className={[
-                'transition-all duration-150',
-                active ? 'text-gold drop-shadow-[0_0_6px_rgba(255,176,32,0.6)]' : 'text-muted',
-              ].join(' ')}
-            >
+            <span className={['transition-colors duration-150', active ? 'text-primary2' : 'text-muted'].join(' ')}>
               {item.icon}
             </span>
             <span
               className={[
                 'font-display text-[10px] font-semibold uppercase tracking-wide transition-colors duration-150',
-                active ? 'text-gold' : 'text-muted',
+                active ? 'text-primary2' : 'text-muted',
               ].join(' ')}
             >
               {item.label}
