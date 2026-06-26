@@ -9,6 +9,7 @@ import { EarningsScreen } from './screens/EarningsScreen'
 import { WashersScreen } from './screens/WashersScreen'
 import { ServicesScreen } from './screens/ServicesScreen'
 import { MoreScreen } from './screens/MoreScreen'
+import { ChangePasswordScreen } from './screens/ChangePasswordScreen'
 import { Toast } from './components/Toast'
 
 function App() {
@@ -25,6 +26,7 @@ function App() {
             <Route path="team" element={<TeamScreen />} />
             <Route path="team/roster" element={<WashersScreen />} />
             <Route path="more" element={<MoreScreen />} />
+            <Route path="more/change-password" element={<ChangePasswordScreen />} />
             <Route path="more/earnings" element={<EarningsScreen />} />
             <Route path="more/services" element={<ServicesScreen />} />
           </Route>

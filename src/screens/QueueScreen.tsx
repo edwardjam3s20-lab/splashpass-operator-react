@@ -4,6 +4,7 @@ import { useAppStore } from '../store/useAppStore'
 import { fetchWashers } from '../lib/washers'
 import {
   fetchTodayBookings,
+  fetchUpcomingBookings,
   assignWasher,
   startWash,
   completeBooking,
@@ -184,16 +185,95 @@ function QueueCard({
   )
 }
 
+// ── Upcoming (read-only, future-dated bookings) ────
+function fmtUpcomingDate(dateStr: string): string {
+  const d = new Date(dateStr + 'T00:00:00')
+  const today = new Date()
+  const tomorrow = new Date(today)
+  tomorrow.setDate(today.getDate() + 1)
+  if (d.toDateString() === tomorrow.toDateString()) return 'Tomorrow'
+  return d.toLocaleDateString('en-KE', { weekday: 'short', day: 'numeric', month: 'short' })
+}
+
+function UpcomingCard({ booking }: { booking: Booking }) {
+  return (
+    <div className="rounded-xl border border-border bg-s2 p-3">
+      <div className="mb-1.5 flex items-center justify-between gap-2">
+        <span className="truncate text-[13px] font-semibold text-text">{booking.user_name || 'Guest'}</span>
+        <span className="flex-shrink-0 font-mono text-[12px] font-bold text-primary2">{booking.time}</span>
+      </div>
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span className="rounded-md border border-border bg-s1 px-1.5 py-0.5 font-mono text-[11px] font-semibold text-text">
+          {booking.car_plate || '— —'}
+        </span>
+        <span className="text-[11px] text-faint">{booking.service_name || '—'}</span>
+        <span className="ml-auto text-[11px] font-semibold text-faint">{fmtKes(booking.total_amount || 0)}</span>
+      </div>
+    </div>
+  )
+}
+
+function UpcomingList({ bookings, isLoading }: { bookings: Booking[]; isLoading: boolean }) {
+  if (isLoading) {
+    return (
+      <div className="flex flex-1 items-center justify-center">
+        <div className="h-7 w-7 animate-spin rounded-full border-[3px] border-primary/20 border-t-primary" />
+      </div>
+    )
+  }
+
+  if (bookings.length === 0) {
+    return (
+      <div className="flex flex-1 items-center justify-center px-6 text-center">
+        <div className="text-[13px] text-faint">No upcoming bookings yet. New ones will show up here as customers book ahead.</div>
+      </div>
+    )
+  }
+
+  // Group by date, preserving the order the API already returned (time asc within day)
+  const groups: { date: string; items: Booking[] }[] = []
+  for (const b of bookings) {
+    const last = groups[groups.length - 1]
+    if (last && last.date === b.date) last.items.push(b)
+    else groups.push({ date: b.date, items: [b] })
+  }
+
+  return (
+    <div className="flex-1 overflow-y-auto px-4 pt-3">
+      <div className="flex flex-col gap-5 pb-6">
+        {groups.map((g) => (
+          <div key={g.date}>
+            <div className="mb-2 text-[12px] font-bold uppercase tracking-wide text-faint">
+              {fmtUpcomingDate(g.date)} · {g.items.length}
+            </div>
+            <div className="flex flex-col gap-2">
+              {g.items.map((b) => <UpcomingCard key={b.id} booking={b} />)}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 // ── QueueScreen ───────────────────────────────────
 export function QueueScreen() {
   const showToast = useAppStore((s) => s.showToast)
   const queryClient = useQueryClient()
   const [assignModal, setAssignModal] = useState<{ bookingId: string; name: string } | null>(null)
+  const [view, setView] = useState<'today' | 'upcoming'>('today')
 
   const { data: bookings = [], isLoading } = useQuery({
     queryKey: ['bookings', 'today'],
     queryFn: fetchTodayBookings,
     refetchInterval: 30_000,
+  })
+
+  const { data: upcomingBookings = [], isLoading: upcomingLoading } = useQuery({
+    queryKey: ['bookings', 'upcoming'],
+    queryFn: fetchUpcomingBookings,
+    enabled: view === 'upcoming',
+    staleTime: 60_000,
   })
 
   const { data: washersData } = useQuery({
@@ -246,13 +326,31 @@ export function QueueScreen() {
   return (
     <div className="flex h-full flex-col">
       <div className="sticky top-0 z-10 border-b border-border bg-bg/90 px-4 pb-3 pt-12 backdrop-blur-xl">
-        <div className="flex items-center justify-between">
+        <div className="mb-3 flex items-center justify-between">
           <h2 className="font-display text-lg font-extrabold text-text">Queue</h2>
-          <span className="text-[12px] text-faint">{bookings.length} today</span>
+          <span className="text-[12px] text-faint">
+            {view === 'today' ? `${bookings.length} today` : `${upcomingBookings.length} upcoming`}
+          </span>
+        </div>
+        <div className="flex rounded-lg bg-s2 p-1">
+          {(['today', 'upcoming'] as const).map((v) => (
+            <button
+              key={v}
+              onClick={() => setView(v)}
+              className={[
+                'flex-1 rounded-md py-1.5 text-[12px] font-bold capitalize transition-colors duration-150',
+                view === v ? 'bg-s1 text-text shadow-sm' : 'text-faint',
+              ].join(' ')}
+            >
+              {v}
+            </button>
+          ))}
         </div>
       </div>
 
-      {isLoading ? (
+      {view === 'upcoming' ? (
+        <UpcomingList bookings={upcomingBookings} isLoading={upcomingLoading} />
+      ) : isLoading ? (
         <div className="flex flex-1 items-center justify-center">
           <div className="h-7 w-7 animate-spin rounded-full border-[3px] border-primary/20 border-t-primary" />
         </div>

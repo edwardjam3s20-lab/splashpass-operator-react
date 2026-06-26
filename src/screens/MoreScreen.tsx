@@ -37,6 +37,17 @@ const MENU_ITEMS = [
       </svg>
     ),
   },
+  {
+    key: 'change-password',
+    label: 'Change password',
+    path: '/app/more/change-password',
+    icon: (
+      <svg viewBox="0 0 24 24" className="h-5 w-5 fill-none stroke-current stroke-[1.8]">
+        <rect x="5" y="11" width="14" height="9" rx="2" />
+        <path d="M8 11V7a4 4 0 018 0v4" strokeLinecap="round" />
+      </svg>
+    ),
+  },
 ]
 
 export function MoreScreen() {
