@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAppStore } from '../store/useAppStore'
 import { logout } from '../lib/auth'
 import { initials } from '../lib/operations'
+import { getPushSupport, isSubscribedToPush, subscribeToPush, unsubscribeFromPush, type PushSupport } from '../lib/push'
 
 const MENU_ITEMS = [
   {
@@ -57,6 +58,37 @@ export function MoreScreen() {
   const showToast = useAppStore((s) => s.showToast)
   const navigate = useNavigate()
   const [loggingOut, setLoggingOut] = useState(false)
+  const [pushSupport, setPushSupport] = useState<PushSupport>('default')
+  const [isSubscribed, setIsSubscribed] = useState(false)
+  const [togglingPush, setTogglingPush] = useState(false)
+
+  useEffect(() => {
+    setPushSupport(getPushSupport())
+    isSubscribedToPush().then(setIsSubscribed)
+  }, [])
+
+  async function handleEnablePush() {
+    setTogglingPush(true)
+    try {
+      const result = await subscribeToPush()
+      showToast(result.message, !result.ok)
+      setPushSupport(getPushSupport())
+      setIsSubscribed(await isSubscribedToPush())
+    } finally {
+      setTogglingPush(false)
+    }
+  }
+
+  async function handleDisablePush() {
+    setTogglingPush(true)
+    try {
+      await unsubscribeFromPush()
+      showToast('Notifications turned off.')
+      setIsSubscribed(false)
+    } finally {
+      setTogglingPush(false)
+    }
+  }
 
   async function handleLogout() {
     setLoggingOut(true)
@@ -93,6 +125,35 @@ export function MoreScreen() {
               </div>
             )}
           </div>
+        </div>
+
+        {/* Notifications */}
+        <div className="mb-5 flex items-center justify-between gap-3 rounded-2xl border border-border bg-s1 p-4">
+          <div className="min-w-0 flex-1">
+            <div className="text-[13px] font-bold text-text">Booking alerts</div>
+            <div className="mt-0.5 text-[12px] text-muted">
+              {pushSupport === 'unsupported'
+                ? 'Not supported on this browser. Try Chrome on Android, or install this app to your home screen on iOS.'
+                : pushSupport === 'denied'
+                ? 'Blocked — enable notifications for this site in your browser settings.'
+                : isSubscribed
+                ? 'New booking requests will alert you, even with the app closed.'
+                : 'Get notified instantly when a customer requests a booking.'}
+            </div>
+          </div>
+          {pushSupport !== 'unsupported' && pushSupport !== 'denied' && (
+            <button
+              type="button"
+              disabled={togglingPush}
+              onClick={isSubscribed ? handleDisablePush : handleEnablePush}
+              className={[
+                'flex-shrink-0 rounded-lg px-3.5 py-2 text-[12px] font-bold disabled:opacity-50',
+                isSubscribed ? 'bg-s2 text-text' : 'bg-primary text-white',
+              ].join(' ')}
+            >
+              {togglingPush ? '…' : isSubscribed ? 'Turn off' : 'Enable'}
+            </button>
+          )}
         </div>
 
         {/* Menu grid */}

@@ -113,6 +113,7 @@ export function DashboardScreen() {
   const waiting = stages.filter((s) => s.stage === 'waiting')
   const assigned = stages.filter((s) => s.stage === 'assigned')
   const inQueue = waiting.length + assigned.length
+  const pendingCount = bookings.filter((b) => b.status === 'pending').length
 
   const revenueToday = completed.reduce((t, s) => t + (s.b.operator_amount || 0), 0)
   const busyWasherIds = new Set(
@@ -164,6 +165,19 @@ export function DashboardScreen() {
           <div className="rounded-lg border border-warn/25 bg-warn/10 px-3.5 py-2.5 text-[12px] text-warn">
             Staff roster isn't linked to your account yet — ask admin to link your wash point.
           </div>
+        )}
+
+        {!isLoading && pendingCount > 0 && (
+          <button
+            onClick={() => navigate('/app/queue')}
+            className="flex items-center gap-2.5 rounded-xl border border-primary/30 bg-primary/10 px-3.5 py-3 text-left"
+          >
+            <span className="h-2 w-2 flex-shrink-0 animate-pulse rounded-full bg-primary" />
+            <span className="flex-1 text-[13px] font-bold text-primary2">
+              {pendingCount} new booking request{pendingCount === 1 ? '' : 's'} waiting
+            </span>
+            <span className="text-[12px] font-bold text-primary2">Review →</span>
+          </button>
         )}
 
         {isLoading ? (

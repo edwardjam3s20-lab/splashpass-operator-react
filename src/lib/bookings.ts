@@ -59,6 +59,34 @@ export async function freeWasher(bookingId: string): Promise<Booking> {
   return data.booking
 }
 
+export async function acceptBooking(bookingId: string): Promise<Booking> {
+  const data = await apiFetch<{ booking: Booking }>(`/api/operator/bookings/${bookingId}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ action: 'accept' }),
+  })
+  return data.booking
+}
+
+export async function rejectBooking(bookingId: string, reason?: string): Promise<Booking> {
+  const data = await apiFetch<{ booking: Booking }>(`/api/operator/bookings/${bookingId}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ action: 'reject', reason }),
+  })
+  return data.booking
+}
+
+/**
+ * Pending requests waiting on this operator's decision. Filtered
+ * client-side from fetchTodayBookings' result rather than a new
+ * query param — pending requests are inherently "for today" (a customer
+ * waiting live for a response isn't booking three days out), so the
+ * existing ?date=today fetch already has everything needed.
+ */
+export async function fetchPendingBookings(): Promise<Booking[]> {
+  const all = await fetchTodayBookings()
+  return all.filter((b) => b.status === 'pending')
+}
+
 export function isWasherBusyError(e: unknown): boolean {
   return e instanceof ApiError && e.status === 409
 }

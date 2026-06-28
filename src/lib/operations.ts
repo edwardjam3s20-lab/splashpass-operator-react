@@ -12,9 +12,30 @@ import type { Booking, Washer } from '../types'
  * (assign / start / complete), so moving a card between columns in the
  * UI is always just calling the matching existing mutation.
  */
+/**
+ * The four-stage kanban model the whole app is now built around. This is
+ * a direct, 1:1 mapping of fields that already exist on `Booking` — no
+ * backend change required:
+ *   waiting   → status !== 'completed' && !assigned_washer_id
+ *   assigned  → assigned_washer_id set, wash_started_at not set
+ *   washing   → wash_started_at set, wash_completed_at not set
+ *   completed → status === 'completed'
+ * This mirrors the real action lifecycle in lib/bookings.ts exactly
+ * (assign / start / complete), so moving a card between columns in the
+ * UI is always just calling the matching existing mutation.
+ *
+ * Returns null for 'pending', 'rejected', and 'cancelled' — these aren't
+ * operational stages at all. A pending request hasn't been agreed to yet
+ * (it belongs in the Requests list, not "Waiting" — those look the same
+ * today but mean very different things: one needs a yes/no, the other
+ * is already a real job waiting for a washer). Rejected/cancelled never
+ * become a wash job. Filter these out before building the kanban rather
+ * than inventing a stage for them.
+ */
 export type Stage = 'waiting' | 'assigned' | 'washing' | 'completed'
 
-export function stageOf(b: Booking): Stage {
+export function stageOf(b: Booking): Stage | null {
+  if (b.status === 'pending' || b.status === 'rejected' || b.status === 'cancelled') return null
   if (b.status === 'completed') return 'completed'
   if (b.wash_started_at) return 'washing'
   if (b.assigned_washer_id) return 'assigned'

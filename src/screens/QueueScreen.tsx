@@ -5,6 +5,9 @@ import { fetchWashers } from '../lib/washers'
 import {
   fetchTodayBookings,
   fetchUpcomingBookings,
+  fetchPendingBookings,
+  acceptBooking,
+  rejectBooking,
   assignWasher,
   startWash,
   completeBooking,
@@ -23,6 +26,90 @@ import {
 import type { Booking, Washer } from '../types'
 
 const COLUMNS: Stage[] = ['waiting', 'assigned', 'washing', 'completed']
+
+// ── Pending requests (awaiting accept/reject) ──────
+function RequestCard({
+  booking,
+  onAccept,
+  onReject,
+  accepting,
+  rejecting,
+}: {
+  booking: Booking
+  onAccept: () => void
+  onReject: () => void
+  accepting: boolean
+  rejecting: boolean
+}) {
+  const busy = accepting || rejecting
+  return (
+    <div className="rounded-xl border border-primary/30 bg-primary/5 p-3.5">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <span className="truncate text-[14px] font-bold text-text">{booking.user_name || 'Guest'}</span>
+        <span className="flex-shrink-0 font-mono text-[13px] font-bold text-primary2">{booking.time}</span>
+      </div>
+      <div className="mb-3 flex flex-wrap items-center gap-1.5">
+        <span className="rounded-md border border-border bg-s2 px-1.5 py-0.5 font-mono text-[11px] font-semibold text-text">
+          {booking.car_plate || '— —'}
+        </span>
+        <span className="text-[11px] text-faint">
+          {[booking.car_make, booking.car_model].filter(Boolean).join(' ') || booking.car_type}
+        </span>
+        <span className="text-[11px] text-faint">· {booking.service_name}</span>
+        <span className="ml-auto text-[12px] font-bold text-text">{fmtKes(booking.total_amount || 0)}</span>
+      </div>
+      <div className="flex gap-2">
+        <button
+          onClick={onReject}
+          disabled={busy}
+          className="flex-1 rounded-lg bg-s2 py-2.5 text-[12px] font-bold text-faint disabled:opacity-50"
+        >
+          {rejecting ? 'Declining…' : 'Decline'}
+        </button>
+        <button
+          onClick={onAccept}
+          disabled={busy}
+          className="flex-1 rounded-lg bg-primary py-2.5 text-[12px] font-bold text-white disabled:opacity-50"
+        >
+          {accepting ? 'Accepting…' : 'Accept'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function RejectReasonSheet({ onConfirm, onClose }: { onConfirm: (reason?: string) => void; onClose: () => void }) {
+  const [reason, setReason] = useState('')
+  return (
+    <div className="fixed inset-0 z-[200] flex items-end justify-center bg-black/70 backdrop-blur-sm" onClick={onClose}>
+      <div
+        className="w-full max-w-lg rounded-t-2xl bg-s1 px-5 pt-6"
+        style={{ paddingBottom: 'calc(28px + env(safe-area-inset-bottom))' }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mx-auto mb-5 h-1 w-10 rounded-full bg-border" />
+        <div className="mb-1 font-display text-lg font-extrabold text-text">Decline request</div>
+        <div className="mb-4 text-[13px] text-muted">Let the customer know why (optional) — they'll see this in their SMS.</div>
+        <textarea
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          placeholder="e.g. Fully booked until 3pm"
+          rows={3}
+          className="mb-4 w-full rounded-xl border border-border bg-s2 p-3 text-[14px] text-text outline-none focus:border-primary/50"
+        />
+        <button
+          onClick={() => onConfirm(reason.trim() || undefined)}
+          className="mb-2 w-full rounded-xl bg-danger py-3.5 text-[14px] font-bold text-white"
+        >
+          Decline Booking
+        </button>
+        <button onClick={onClose} className="w-full rounded-xl border border-border bg-s2 py-3 text-[13px] font-semibold text-text">
+          Cancel
+        </button>
+      </div>
+    </div>
+  )
+}
 
 // ── AssignSheet ───────────────────────────────────
 function AssignSheet({
@@ -261,7 +348,14 @@ export function QueueScreen() {
   const showToast = useAppStore((s) => s.showToast)
   const queryClient = useQueryClient()
   const [assignModal, setAssignModal] = useState<{ bookingId: string; name: string } | null>(null)
+  const [rejectModal, setRejectModal] = useState<string | null>(null)
   const [view, setView] = useState<'today' | 'upcoming'>('today')
+
+  const { data: pendingBookings = [] } = useQuery({
+    queryKey: ['bookings', 'pending'],
+    queryFn: fetchPendingBookings,
+    refetchInterval: 30_000,
+  })
 
   const { data: bookings = [], isLoading } = useQuery({
     queryKey: ['bookings', 'today'],
@@ -285,7 +379,19 @@ export function QueueScreen() {
 
   function invalidate() {
     queryClient.invalidateQueries({ queryKey: ['bookings', 'today'] })
+    queryClient.invalidateQueries({ queryKey: ['bookings', 'pending'] })
   }
+
+  const acceptMutation = useMutation({
+    mutationFn: acceptBooking,
+    onSuccess: () => { invalidate(); showToast('Request accepted — customer can now pay') },
+    onError: (e: Error) => showToast(e.message, true),
+  })
+  const rejectMutation = useMutation({
+    mutationFn: ({ bookingId, reason }: { bookingId: string; reason?: string }) => rejectBooking(bookingId, reason),
+    onSuccess: () => { invalidate(); showToast('Request declined') },
+    onError: (e: Error) => showToast(e.message, true),
+  })
 
   const assignMutation = useMutation({
     mutationFn: ({ bookingId, washerId }: { bookingId: string; washerId: string }) => assignWasher(bookingId, washerId),
@@ -315,7 +421,10 @@ export function QueueScreen() {
   }
 
   const byStage: Record<Stage, Booking[]> = { waiting: [], assigned: [], washing: [], completed: [] }
-  for (const b of bookings) byStage[stageOf(b)].push(b)
+  for (const b of bookings) {
+    const stage = stageOf(b)
+    if (stage) byStage[stage].push(b)
+  }
   // Most-recently-completed first; everything else oldest-first (FIFO).
   byStage.completed.sort((a, b) => (b.wash_completed_at || '').localeCompare(a.wash_completed_at || ''))
 
@@ -347,6 +456,29 @@ export function QueueScreen() {
           ))}
         </div>
       </div>
+
+      {view === 'today' && pendingBookings.length > 0 && (
+        <div className="border-b border-border px-4 py-3">
+          <div className="mb-2 flex items-center gap-1.5">
+            <span className="h-2 w-2 animate-pulse rounded-full bg-primary" />
+            <span className="text-[12px] font-bold uppercase tracking-wide text-primary2">
+              {pendingBookings.length} new request{pendingBookings.length === 1 ? '' : 's'}
+            </span>
+          </div>
+          <div className="flex flex-col gap-2">
+            {pendingBookings.map((b) => (
+              <RequestCard
+                key={b.id}
+                booking={b}
+                accepting={acceptMutation.isPending && acceptMutation.variables === b.id}
+                rejecting={rejectMutation.isPending && rejectMutation.variables?.bookingId === b.id}
+                onAccept={() => acceptMutation.mutate(b.id)}
+                onReject={() => setRejectModal(b.id)}
+              />
+            ))}
+          </div>
+        </div>
+      )}
 
       {view === 'upcoming' ? (
         <UpcomingList bookings={upcomingBookings} isLoading={upcomingLoading} />
@@ -405,6 +537,16 @@ export function QueueScreen() {
           busyWasherIds={busyWasherIds}
           onAssign={handleAssign}
           onClose={() => setAssignModal(null)}
+        />
+      )}
+
+      {rejectModal && (
+        <RejectReasonSheet
+          onConfirm={(reason) => {
+            rejectMutation.mutate({ bookingId: rejectModal, reason })
+            setRejectModal(null)
+          }}
+          onClose={() => setRejectModal(null)}
         />
       )}
     </div>

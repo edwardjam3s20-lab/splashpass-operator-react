@@ -31,7 +31,7 @@ export interface Booking {
   user_email: string
   date: string
   time: string
-  status: 'confirmed' | 'completed' | 'cancelled'
+  status: 'pending' | 'accepted' | 'rejected' | 'confirmed' | 'completed' | 'cancelled'
   car_plate: string
   car_type: string
   car_make: string
@@ -43,6 +43,7 @@ export interface Booking {
   splash_commission: number
   commission_tier: number
   payment_status?: 'pending' | 'paid'
+  rejection_reason?: string | null
   // Confirmed from bookings/[id]/route.js's PATCH action handlers
   assigned_washer_id?: string | null
   assigned_by_operator_id?: string | null
