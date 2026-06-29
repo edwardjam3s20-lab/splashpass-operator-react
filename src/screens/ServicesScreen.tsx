@@ -31,6 +31,22 @@ async function deleteService(id: string): Promise<void> {
   await apiFetch(`/api/operator/services/${id}`, { method: 'DELETE' })
 }
 
+interface WashPointHours {
+  opens_at: string
+  closes_at: string
+}
+
+async function fetchWashPointHours(): Promise<WashPointHours> {
+  return apiFetch<WashPointHours>('/api/operator/wash-point-hours')
+}
+
+async function updateWashPointHours(payload: WashPointHours): Promise<WashPointHours> {
+  return apiFetch<WashPointHours>('/api/operator/wash-point-hours', {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  })
+}
+
 // ── Types ─────────────────────────────────────────
 const CAR_TYPES = ['saloon', 'suv', 'pickup', 'van', 'hatchback', 'coupe'] as const
 type CarType = typeof CAR_TYPES[number]
@@ -264,6 +280,103 @@ function ServiceFormModal({
 }
 
 // ── ServicesScreen ────────────────────────────────
+function HoursCard() {
+  const showToast = useAppStore((s) => s.showToast)
+  const queryClient = useQueryClient()
+  const [editing, setEditing] = useState(false)
+  const [opensAt, setOpensAt] = useState('')
+  const [closesAt, setClosesAt] = useState('')
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['wash-point-hours'],
+    queryFn: fetchWashPointHours,
+  })
+
+  const mutation = useMutation({
+    mutationFn: updateWashPointHours,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['wash-point-hours'] })
+      showToast('✓ Hours updated')
+      setEditing(false)
+    },
+    onError: (e: Error) => showToast(e.message, true),
+  })
+
+  function startEditing() {
+    setOpensAt(data?.opens_at?.slice(0, 5) || '07:00')
+    setClosesAt(data?.closes_at?.slice(0, 5) || '21:00')
+    setEditing(true)
+  }
+
+  function fmt(time?: string) {
+    if (!time) return '—'
+    const [h, m] = time.split(':')
+    const hour = parseInt(h, 10)
+    const ampm = hour >= 12 ? 'PM' : 'AM'
+    const h12 = hour % 12 === 0 ? 12 : hour % 12
+    return `${h12}:${m} ${ampm}`
+  }
+
+  return (
+    <div className="mb-4 rounded-2xl border border-border bg-s1 p-4">
+      <div className="mb-3 flex items-center justify-between">
+        <span className="text-[13px] font-bold text-text">Operating Hours</span>
+        {!editing && (
+          <button onClick={startEditing} className="text-[12px] font-bold text-primary2">
+            Edit
+          </button>
+        )}
+      </div>
+
+      {isLoading ? (
+        <div className="sp-skeleton h-5 w-32 rounded" />
+      ) : editing ? (
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center gap-3">
+            <div className="flex-1">
+              <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-muted">Opens</label>
+              <input
+                type="time"
+                value={opensAt}
+                onChange={(e) => setOpensAt(e.target.value)}
+                className="w-full rounded-lg border border-border bg-s2 px-3 py-2.5 text-sm text-text outline-none focus:border-primary/50"
+              />
+            </div>
+            <div className="flex-1">
+              <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-muted">Closes</label>
+              <input
+                type="time"
+                value={closesAt}
+                onChange={(e) => setClosesAt(e.target.value)}
+                className="w-full rounded-lg border border-border bg-s2 px-3 py-2.5 text-sm text-text outline-none focus:border-primary/50"
+              />
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setEditing(false)}
+              className="flex-1 rounded-lg bg-s2 py-2.5 text-[12px] font-bold text-faint"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => mutation.mutate({ opens_at: opensAt, closes_at: closesAt })}
+              disabled={mutation.isPending}
+              className="flex-1 rounded-lg bg-primary py-2.5 text-[12px] font-bold text-white disabled:opacity-50"
+            >
+              {mutation.isPending ? 'Saving…' : 'Save'}
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="text-[14px] font-semibold text-text">
+          {fmt(data?.opens_at)} – {fmt(data?.closes_at)}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function ServicesScreen() {
   const operator = useAppStore((s) => s.operator)
   const showToast = useAppStore((s) => s.showToast)
@@ -337,6 +450,8 @@ export function ServicesScreen() {
             No wash point linked to your account — contact admin to link it before managing services.
           </div>
         )}
+
+        {operator?.wash_point_id && <HoursCard />}
 
         {isLoading ? (
           <div className="flex justify-center py-10">
